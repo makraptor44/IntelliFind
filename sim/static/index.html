@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IntelliFind — Procurement Automation Simulation</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◈</span>
+    <div>
+      <h1>IntelliFind</h1>
+      <p class="tagline">Automated Procurement — Live Simulation</p>
+    </div>
+  </div>
+  <div class="clock">
+    <div class="clock-day"><span id="clock-day">0.0</span><small>day</small></div>
+    <div class="clock-meta">
+      <span id="clock-tick">tick 0</span>
+      <span id="run-status" class="badge paused">paused</span>
+    </div>
+  </div>
+  <div class="transport">
+    <button id="btn-start" class="btn primary">▶ Start</button>
+    <button id="btn-pause" class="btn">⏸ Pause</button>
+    <button id="btn-step" class="btn">⏭ Step day</button>
+    <button id="btn-reset" class="btn danger">↺ Reset</button>
+    <label class="speed">
+      Speed <output id="speed-val">12</output>×
+      <input id="speed" type="range" min="1" max="200" value="12" />
+    </label>
+  </div>
+</header>
+
+<main>
+  <!-- KPI strip (always visible) -->
+  <section id="kpis" class="kpi-strip"></section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="shops">Repair Shops</button>
+    <button class="tab" data-tab="suppliers">Suppliers</button>
+    <button class="tab" data-tab="procurement">Procurement Engine</button>
+    <button class="tab" data-tab="orderbook">Order Book</button>
+    <button class="tab" data-tab="analytics">Charts &amp; Analytics</button>
+    <button class="tab" data-tab="strategy">Strategy Lab</button>
+    <button class="tab" data-tab="controls">Controls</button>
+  </nav>
+
+  <!-- OVERVIEW -->
+  <section class="panel tabpage active" data-page="overview">
+    <div class="grid-2">
+      <div class="card">
+        <h2>Cumulative P&amp;L</h2>
+        <canvas id="chart-pnl-overview" height="220"></canvas>
+      </div>
+      <div class="card">
+        <h2>Average Customer Satisfaction</h2>
+        <canvas id="chart-sat-overview" height="220"></canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Total Inventory by Product</h2>
+        <canvas id="chart-inv-overview" height="220"></canvas>
+      </div>
+      <div class="card">
+        <h2>Recent Events</h2>
+        <div id="event-feed" class="event-feed"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHOPS -->
+  <section class="panel tabpage" data-page="shops">
+    <p class="hint">Each repair shop carries all 5 products. Status colours flag inventory health. Demand is similar but not identical between shops.</p>
+    <div id="shops-container"></div>
+  </section>
+
+  <!-- SUPPLIERS -->
+  <section class="panel tabpage" data-page="suppliers">
+    <p class="hint">Prices move with the shared market index and each supplier's own stock &amp; noise. Risk is derived from the realised default history — a cheap supplier can still be unattractive.</p>
+    <div id="suppliers-container"></div>
+  </section>
+
+  <!-- PROCUREMENT -->
+  <section class="panel tabpage" data-page="procurement">
+    <p class="hint">When a shop needs stock the engine scores every supplier on <b>price, risk, delivery and bulk-quantity mismatch</b> (weights below). <b>Lower score = better.</b> The selected supplier is highlighted — showing <i>why</i> the cheapest is not always chosen.</p>
+    <div class="card weight-card">
+      <h2>Live Procurement Weights <small>(sum normalised to 1.00)</small></h2>
+      <div id="weight-sliders" class="weight-sliders"></div>
+    </div>
+    <div id="decisions-container"></div>
+  </section>
+
+  <!-- ORDER BOOK -->
+  <section class="panel tabpage" data-page="orderbook">
+    <div class="card create-limit">
+      <h2>Create a Limit Order</h2>
+      <p class="hint">Buy only when the procurement score drops to or below your maximum acceptable score.</p>
+      <div class="limit-form">
+        <label>Shop <select id="lo-shop"></select></label>
+        <label>Product <select id="lo-product"></select></label>
+        <label>Quantity <input id="lo-qty" type="number" value="100" min="1" /></label>
+        <label>Max score <input id="lo-score" type="number" value="0.35" step="0.01" min="0" max="1" /></label>
+        <button id="lo-submit" class="btn primary">Submit</button>
+      </div>
+      <div id="lo-result" class="lo-result"></div>
+    </div>
+    <div class="card">
+      <h2>Market Orders</h2>
+      <div class="table-wrap"><table id="tbl-market"></table></div>
+    </div>
+    <div class="card">
+      <h2>Limit Orders</h2>
+      <div class="table-wrap"><table id="tbl-limit"></table></div>
+    </div>
+    <div class="card">
+      <h2>Intra-Retailer Trades</h2>
+      <div class="table-wrap"><table id="tbl-intra"></table></div>
+    </div>
+  </section>
+
+  <!-- ANALYTICS -->
+  <section class="panel tabpage" data-page="analytics">
+    <div class="grid-2">
+      <div class="card"><h2>Cumulative P&amp;L</h2><canvas id="chart-pnl" height="220"></canvas></div>
+      <div class="card">
+        <h2>Score vs subsequent P&amp;L
+          <small id="corr-label">correlation —</small>
+        </h2>
+        <canvas id="chart-scatter" height="220"></canvas>
+        <p class="hint tiny">Each point is a market order: its procurement score (x) vs the shop's P&amp;L change over the following days (y). A downward slope means lower (better) scores tend to precede better outcomes. The correlation is computed empirically from the run.</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Supplier Prices <select id="price-product" class="inline-select"></select></h2>
+        <canvas id="chart-prices" height="220"></canvas>
+      </div>
+      <div class="card">
+        <h2>Actual vs Baseline Demand <select id="demand-product" class="inline-select"></select></h2>
+        <canvas id="chart-demand" height="220"></canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><h2>Supplier Procurement Score (nominal)</h2><canvas id="chart-score" height="220"></canvas></div>
+      <div class="card"><h2>Supplier Risk / Default Rate</h2><canvas id="chart-risk" height="220"></canvas></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Inventory over time <select id="inv-product" class="inline-select"></select></h2>
+        <canvas id="chart-inv" height="220"></canvas>
+      </div>
+      <div class="card"><h2>Customer Satisfaction</h2><canvas id="chart-sat" height="220"></canvas></div>
+    </div>
+  </section>
+
+  <!-- STRATEGY LAB -->
+  <section class="panel tabpage" data-page="strategy">
+    <div class="card">
+      <h2>Strategy Sweep <small>precursor to the future AI optimisation layer</small></h2>
+      <p class="hint">Runs the simulation headlessly under a range of procurement-weight strategies on the current scenario and ranks them by long-term P&amp;L. This is the <b>(parameter set → long-term P&amp;L)</b> signal a future AI agent will learn to optimise.</p>
+      <div class="sweep-controls">
+        <label>Days <input id="sweep-days" type="number" value="40" min="10" max="120" /></label>
+        <label>Extra random strategies <input id="sweep-random" type="number" value="6" min="0" max="40" /></label>
+        <button id="sweep-run" class="btn primary">Run sweep</button>
+        <span id="sweep-status" class="hint"></span>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><h2>Long-term P&amp;L by strategy</h2><canvas id="chart-sweep" height="260"></canvas></div>
+      <div class="card"><h2>Stockouts vs P&amp;L</h2><canvas id="chart-sweep-scatter" height="260"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Results</h2>
+      <div class="table-wrap"><table id="tbl-sweep"></table></div>
+    </div>
+  </section>
+
+  <!-- CONTROLS -->
+  <section class="panel tabpage" data-page="controls">
+    <p class="hint">Adjust the scenario, then <b>Apply &amp; Reset</b>. Re-using the same random seed reproduces an identical scenario.</p>
+    <div class="grid-2">
+      <div class="card">
+        <h2>Scenario</h2>
+        <div id="ctrl-scenario" class="ctrl-grid"></div>
+      </div>
+      <div class="card">
+        <h2>Per-supplier terms</h2>
+        <div id="ctrl-suppliers" class="ctrl-grid"></div>
+        <h2 style="margin-top:1rem">Per-product economics</h2>
+        <div id="ctrl-products" class="ctrl-grid"></div>
+      </div>
+    </div>
+    <div class="apply-bar">
+      <button id="apply-reset" class="btn primary">Apply &amp; Reset</button>
+      <a id="export-link" class="btn" href="/api/export">⭳ Export event log (JSON)</a>
+      <span class="hint">Structured event log for offline analysis / future ML training.</span>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
